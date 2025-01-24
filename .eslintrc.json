@@ -12,6 +12,7 @@
   "rules": {
     "class-methods-use-this": "off",
     "no-unused-vars": "off",
-    "prefer-template": "off"
+    "prefer-template": "off",
+    "max-len": "off"
   }
 }

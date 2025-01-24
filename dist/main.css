@@ -92,6 +92,7 @@ body {
   border: 1px solid grey;
   background-color: #fff;
   border-radius: 10px;
+  overflow: auto;
 }
 
 .chat-users-title {

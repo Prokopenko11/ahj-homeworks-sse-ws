@@ -1,8 +1,9 @@
 import Message from './message';
 
 export default class Chat {
-  constructor(nickname) {
+  constructor(nickname, wsTransport) {
     this.nickname = nickname;
+    this.wsTransport = wsTransport;
 
     this.chatMessages = document.querySelector('.chat-messages');
     this.chatInput = document.querySelector('.chat-messages-input');
@@ -11,12 +12,11 @@ export default class Chat {
     this.sendMessage = this.sendMessage.bind(this);
     this.chatInput.addEventListener('keydown', this.sendMessage);
 
-    this.ws = new WebSocket('https://sse-ws-server-dqss.onrender.com/ws');
+    this.handleMessage = this.handleMessage.bind(this);
+    this.wsTransport.addMessageListener(this.handleMessage);
 
-    this.wsOnMessage = this.wsOnMessage.bind(this);
-    this.ws.addEventListener('message', this.wsOnMessage);
-
-    window.addEventListener('beforeunload', this.handleWindowClose.bind(this));
+    this.handleWindowClose = this.handleWindowClose.bind(this);
+    window.addEventListener('beforeunload', this.handleWindowClose);
   }
 
   sendMessage(e) {
@@ -28,36 +28,25 @@ export default class Chat {
         date: new Date().toISOString(),
       };
 
-      this.ws.send(JSON.stringify(message));
-
+      this.wsTransport.send(message);
       this.chatInput.value = '';
     }
   }
 
-  wsOnMessage(e) {
-    const data = JSON.parse(e.data);
-
-    if (data.type === 'send') {
-      const message = new Message();
-
-      const isCurrentUser = data.user === this.nickname;
-
-      const formattedDate = message.formatDate(new Date(data.date));
-
-      const messageElem = message.createMessage(
-        data.user,
-        formattedDate,
-        data.message,
-        isCurrentUser,
-      );
-
-      this.chatMessages.insertAdjacentHTML('beforeend', messageElem);
-
-      this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+  handleMessage(data) {
+    if (Array.isArray(data)) {
+      this.updateActiveUsers(data);
     }
 
-    if (Array.isArray(data) && data.length > 0) {
-      this.updateActiveUsers(data);
+    if (data.type === 'send') {
+      const isCurrentUser = data.user === this.nickname;
+      const message = new Message();
+
+      const formattedDate = message.formatDate(new Date(data.date));
+      const messageElem = message.createMessage(data.user, formattedDate, data.message, isCurrentUser);
+
+      this.chatMessages.insertAdjacentHTML('beforeend', messageElem);
+      this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
     }
   }
 
@@ -69,12 +58,11 @@ export default class Chat {
       userElement.classList.add('chat-user');
 
       const displayName = user.name === this.nickname ? 'You' : user.name;
+      userElement.textContent = displayName;
 
       if (user.name === this.nickname) {
         userElement.classList.add('current-user');
       }
-
-      userElement.textContent = displayName;
 
       this.chatUsers.appendChild(userElement);
     });
@@ -86,6 +74,6 @@ export default class Chat {
       user: { name: this.nickname },
     };
 
-    this.ws.send(JSON.stringify(message));
+    this.wsTransport.send(message);
   }
 }
